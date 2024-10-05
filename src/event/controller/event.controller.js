@@ -187,8 +187,8 @@ exports.getEventStatus = async (req, res) => {
     const { id } = req.user;
     const user = await User.findByPk(id);
     
-    if (!user || (user.role !== "user" && user.role !== "admin")) {
-      return res.status(403).json({ message: 'You are not authorized to perform this action' });
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: 'You are not authorized to perform this action but only admin can perform this action' });
     }
 
     const { eventId } = req.params;
