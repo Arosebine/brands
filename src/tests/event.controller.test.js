@@ -19,23 +19,23 @@ jest.mock('crypto');
 
 
 describe('Initialize Event', () => {
-    afterAll(async () => {
-        await sequelize.close();
-      });
-    
-      afterAll(() => {
-        clearTimeout(30000);
-      });
-
-      afterEach(() => {
-        jest.clearAllMocks();
-      });
-
-
   let token;
 
   beforeEach(() => {
     token = jwt.sign({ id: 1 }, process.env.JWT_SECRET);
+  });
+
+  
+  afterAll(async () => {
+    await sequelize.close();
+  });
+
+  afterAll(() => {
+    clearTimeout(global.setTimeout);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should return 403 if user is not authorized', async () => {
@@ -139,19 +139,6 @@ describe('Initialize Event', () => {
 
 
 describe('book a ticket', () => {
-    afterAll(async () => {
-        await sequelize.close();
-      });
-    
-      afterAll(() => {
-        clearTimeout(30000);
-      });
-
-      afterEach(() => {
-        jest.clearAllMocks();
-      });
-
-
   let token;
   let transactionMock;
 
@@ -163,6 +150,19 @@ describe('book a ticket', () => {
       LOCK: { UPDATE: 'LOCK UPDATE' },
     };
     sequelize.transaction = jest.fn(() => Promise.resolve(transactionMock));
+  });
+
+  
+  afterAll(async () => {
+    await sequelize.close();
+  });
+
+  afterAll(() => {
+    clearTimeout(global.setTimeout);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should return 403 if the user is not authorized', async () => {
@@ -263,18 +263,6 @@ describe('book a ticket', () => {
 
 
 describe('Cancel a ticket', () => {
-    afterAll(async () => {
-        await sequelize.close();
-      });
-    
-      afterAll(() => {
-        clearTimeout(30000);
-      });
-
-      afterEach(() => {
-        jest.clearAllMocks();
-      });
-
   let token;
   let user;
   let event;
@@ -298,6 +286,14 @@ describe('Cancel a ticket', () => {
 
   afterAll(async () => {
     await sequelize.close();
+  });
+
+  afterAll(() => {
+    clearTimeout(global.setTimeout);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should cancel the booking and assign the ticket to a user on the waiting list', async () => {
@@ -369,18 +365,7 @@ describe('Cancel a ticket', () => {
 
 
 describe('Get all events', () => {
-    afterAll(async () => {
-        await sequelize.close();
-      });
     
-      afterAll(() => {
-        clearTimeout(30000);
-      });
-
-      afterEach(() => {
-        jest.clearAllMocks();
-      });
-
   let token;
   let user;
   let event;
@@ -402,6 +387,18 @@ describe('Get all events', () => {
     await WaitingList.destroy({ where: {} });
     await Event.destroy({ where: {} });
     await User.destroy({ where: {} });
+  });
+
+  afterAll(async () => {
+    await sequelize.close();
+  });
+
+  afterAll(() => {
+    clearTimeout(30000);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should return event status successfully for authorized users', async () => {
