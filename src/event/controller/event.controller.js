@@ -13,7 +13,7 @@ exports.initializeEvent = async (req, res) => {
     const user = await User.findByPk(id);
 
     if (!user || user.role !== "admin") {
-      return res.status(403).json({ message: 'You are not authorized to perform this action' });
+      return res.status(403).json({ message: 'You are not authorized to perform this action but admin only' });
     }
 
     const { totalTickets, eventName } = req.body;

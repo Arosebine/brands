@@ -149,7 +149,7 @@ exports.userLogin = async(req, res) => {
             });
         };
         const token = jwt.sign({
-             _id: user._id,
+             id: user.id,
             }, process.env.JWT_SECRET, { expiresIn: '24h' });
             user.password = undefined
         return res.status(200).json({

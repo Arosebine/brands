@@ -1,6 +1,6 @@
 # GREAT BRANDS
 
-The Great Brands is a backend web application that is built to manage collection of Events' booking. The application is built using Express.js, Node.js, MySQL, and Sequelize.
+The Great Brands is a company behind this backend web application that is built to manage collection of Events' booking. The application is built using Express.js, Node.js, MySQL, and Sequelize.
 
 # Copyright (c) 2024, GREAT BRANDS. All rights reserved.
 
