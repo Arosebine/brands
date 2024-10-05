@@ -24,6 +24,8 @@ npm install
 
 npm run dev
 
+npm test
+
 # Documentation:
 
 The documentation for this task is at:[great brands link](https://documenter.getpostman.com/view/18447128/2sAXxMfZ1c)
