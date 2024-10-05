@@ -43,7 +43,7 @@ const Event = sequelize.define('Event', {
 });
 
 
-Event.sync({force: true}).then(() => {
+Event.sync({}).then(() => {
   console.log('Event table synced');
 });
 

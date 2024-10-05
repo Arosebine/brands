@@ -1,7 +1,7 @@
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const app = require('../../index')
+const app = require('../app');
 const User = require('../user/models/user.model');
 const Token = require('../user/models/token.model');
 const { sequelize } = require("../connection/database.connection");
@@ -17,7 +17,7 @@ jest.mock('jsonwebtoken');
 
 describe('User Sign Up', () => {
   afterAll(async () => {
-    await sequelize.close(); // Close the database connection
+    await sequelize.close();
   });
 
   afterAll(() => {
@@ -157,7 +157,7 @@ describe('User Sign Up', () => {
 
 
 
-describe('POST /api/v1/user/userLogin', () => {
+describe('User Login', () => {
   afterAll(async () => {
     await sequelize.close();
   });
