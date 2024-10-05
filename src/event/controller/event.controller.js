@@ -16,7 +16,7 @@ exports.initializeEvent = async (req, res) => {
       return res.status(403).json({ message: 'You are not authorized to perform this action' });
     }
 
-    const { totalTickets } = req.body;
+    const { totalTickets, eventName } = req.body;
     if (!totalTickets) {
       return res.status(400).json({ message: 'Event total tickets are required' });
     }
@@ -28,6 +28,7 @@ exports.initializeEvent = async (req, res) => {
     // Create a new event
     const event = await Event.create({
       userId: user.id,
+      eventName,
       name: user.name,
       totalTickets,
       availableTickets: totalTickets,

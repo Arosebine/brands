@@ -17,6 +17,10 @@ const Event = sequelize.define('Event', {
       key: 'id'
     }
   },
+  eventName: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   name: {
     type: DataTypes.STRING,
     allowNull: false

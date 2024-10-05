@@ -45,6 +45,7 @@ describe('Initialize Event', () => {
       .post('/api/v1/event/initialize')
       .set('Authorization', `Bearer ${token}`)
       .send({
+        eventName: 'Tech world',
         totalTickets: 100,
       });
 
@@ -85,6 +86,7 @@ describe('Initialize Event', () => {
     Event.create.mockResolvedValueOnce({
       id: 1,
       userId: userMock.id,
+      eventName: 'Tech world',
       name: userMock.name,
       totalTickets: 100,
       availableTickets: 100,
@@ -102,6 +104,7 @@ describe('Initialize Event', () => {
     expect(res.body.event).toEqual({
       id: 1,
       userId: userMock.id,
+      eventName: 'Tech world',
       name: userMock.name,
       totalTickets: 100,
       availableTickets: 100,
