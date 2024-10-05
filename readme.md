@@ -35,11 +35,11 @@ The documentation for this task is at:[great brands link](https://documenter.get
 
 1. # Modular Architecture
 Reasoning: Modularity enables the application to be scalable, maintainable, and flexible for future changes. By separating features into different modules (e.g., user management, event management, bookings), each module can be developed, tested, and maintained independently.
-Choice: The app is structured with separate controllers, models, and services for each entity (e.g., User, Event, Booking). This division makes the system more organized, reduces code coupling, and makes it easier to debug or extend specific parts of the application without affecting others.
+Choice: I ensured that app is structured with separate controllers, models, and routes for each entity (e.g., User, Event, Booking). This division makes the system more organized, reduces code coupling, and makes it easier to debug or extend specific parts of the application without affecting others.
 
 2. # Middleware for Reusability
 Reasoning: Middleware is used for cross-cutting concerns like authentication, rate limiting, error handling, and validation. By centralizing these concerns into middleware, they can be applied consistently across different routes, reducing code duplication.
-Choice: The rate-limiting middleware (limiter) and authentication (isAuth) are reusable across different routes. This makes it easier to apply or adjust them as needed, promoting flexibility and code reuse.
+Choice: I ensured that the rate-limiting middleware (limiter) and authentication (isAuth) are reusable across different routes. This makes it easier to apply or adjust them as needed, promoting flexibility and code reuse.
 
 3. # Asynchronous Programming with Transactions
 Reasoning: Asynchronous behavior is essential for handling large-scale applications that require non-blocking operations, especially for I/O tasks like database queries or external API requests. Using transactions ensures database consistency in multi-step operations. Especially, in high-stakes operations like booking tickets, it's crucial that either all steps complete successfully, or none do. This prevents situations where a user’s booking might partially complete, leading to inconsistency in data.
