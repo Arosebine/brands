@@ -72,3 +72,8 @@ Choice: I designed each functions to be testable in isolation. Controllers handl
 10. # Logging and Monitoring
 Reasoning: Logging and monitoring are essential for debugging and understanding the app's behavior. It helps identify issues and track performance.
 Choice: I used Winston with morgan to log important events, errors, and performance metrics. This information can be used for debugging, performance optimization, and monitoring the health of the application.
+
+
+# Admin Login Credentials
+Email: arowo@yopmail.com
+Password: Seyico09@
