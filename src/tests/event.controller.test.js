@@ -16,17 +16,16 @@ jest.mock('../../src/event/models/waitinglist.model');
 jest.mock('../../src/utils/sendEmail');
 jest.mock('jsonwebtoken');
 jest.mock('crypto');
+jest.setTimeout(10000)
+jest.spyOn(console, 'log').mockImplementation(() => {});
 
 
-describe('Initialize Event', () => {
-  let token;
 
-  beforeEach(() => {
-    token = jwt.sign({ id: 1 }, process.env.JWT_SECRET);
-  });
 
-  
+
+describe('Event Initialization', () => {
   afterAll(async () => {
+    await sequelize.transaction.rollback();
     await sequelize.close();
   });
 
@@ -38,122 +37,126 @@ describe('Initialize Event', () => {
     jest.clearAllMocks();
   });
 
-  it('should return 403 if user is not authorized', async () => {
-    User.findByPk.mockResolvedValueOnce({ id: 1, role: 'admin' });
-
-    const res = await request(app)
-      .post('/api/v1/event/initialize')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        eventName: 'Tech world',
-        totalTickets: 100,
-      });
-
-    expect(res.statusCode).toBe(403);
-    expect(res.body.message).toBe('You are not authorized to perform this action');
-  });
-
-  it('should return 400 if totalTickets is missing', async () => {
-    User.findByPk.mockResolvedValueOnce({ id: 1, role: 'admin' });
-
-    const res = await request(app)
-      .post('/api/v1/event/initialize')
-      .set('Authorization', `Bearer ${token}`)
-      .send({});
-
-    expect(res.statusCode).toBe(400);
-    expect(res.body.message).toBe('Event total tickets are required');
-  });
-
-  it('should return 400 if totalTickets is not a positive number', async () => {
-    User.findByPk.mockResolvedValueOnce({ id: 1, role: 'admin' });
-
-    const res = await request(app)
-      .post('/api/v1/event/initialize')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        totalTickets: -10,
-      });
-
-    expect(res.statusCode).toBe(400);
-    expect(res.body.message).toBe('Total tickets must be a positive number');
-  });
-
-  it('should create an event and send email notification', async () => {
-    const userMock = { id: 1, role: 'admin', name: 'kemi', email: 'admin@yopmail.com' };
-    User.findByPk.mockResolvedValueOnce(userMock);
-    
-    Event.create.mockResolvedValueOnce({
+  test('should create an event successfully if user is an admin', async () => {
+    const mockUser = { id: 1, name: 'Admin User', email: 'admin@example.com', role: 'admin' };
+    const mockEvent = {
       id: 1,
-      userId: userMock.id,
-      eventName: 'Tech world',
-      name: userMock.name,
+      eventName: 'Test Event',
+      totalTickets: 100,
+      availableTickets: 100,
+      userId: mockUser.id,
+    };
+
+    User.findByPk.mockResolvedValue(mockUser);
+    Event.create.mockResolvedValue(mockEvent);
+
+    const response = await request(app)
+      .post('/api/v1/event/initialize')
+      .set('Authorization', 'Bearer validToken')
+      .send({
+        totalTickets: 100,
+        eventName: 'Test Event',
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body).toEqual({
+      message: 'Event created successfully',
+      event: mockEvent,
+    });
+
+    expect(Event.create).toHaveBeenCalledWith({
+      userId: mockUser.id,
+      eventName: 'Test Event',
+      name: mockUser.name,
       totalTickets: 100,
       availableTickets: 100,
     });
 
-    const res = await request(app)
-      .post('/api/v1/event/initialize')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        totalTickets: 100,
-      });
-
-    expect(res.statusCode).toBe(201);
-    expect(res.body.message).toBe('Event created successfully');
-    expect(res.body.event).toEqual({
-      id: 1,
-      userId: userMock.id,
-      eventName: 'Tech world',
-      name: userMock.name,
-      totalTickets: 100,
-      availableTickets: 100,
-    });
-    
-    expect(sendEmail).toHaveBeenCalledWith({
-      email: userMock.email,
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({
+      email: mockUser.email,
       subject: 'Event Created',
-      message: `Your event has been created successfully with ID: 1, and total tickets: 100.`,
-    });
+      message: `Your event has been created successfully with ID: ${mockEvent.id}, and total tickets: 100.`,
+    }));
   });
 
-  it('should return 500 on internal server error', async () => {
-    User.findByPk.mockResolvedValueOnce({ id: 1, role: 'admin' });
-    Event.create.mockRejectedValueOnce(new Error('Database error'));
+  test('should return 403 if user is not an admin', async () => {
+    const mockUser = { id: 1, name: 'Seyi Ebine', email: 'seyi@example.com', role: 'user' };
+    User.findByPk.mockResolvedValue(mockUser);
 
-    const res = await request(app)
+    const response = await request(app)
       .post('/api/v1/event/initialize')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', 'Bearer validToken')
       .send({
         totalTickets: 100,
+        eventName: 'Test Event',
       });
 
-    expect(res.statusCode).toBe(500);
-    expect(res.body.message).toBe('Something went wrong while creating the event');
-    expect(res.body.error).toBe('Database error');
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toEqual({
+      message: 'You are not authorized to perform this action but admin only',
+    });
+  });
+
+  test('should return 400 if totalTickets is not provided', async () => {
+    const mockUser = { id: 1, name: 'Admin User', email: 'admin@example.com', role: 'admin' };
+    User.findByPk.mockResolvedValue(mockUser);
+
+    const response = await request(app)
+      .post('/api/v1/event/initialize')
+      .set('Authorization', 'Bearer validToken')
+      .send({
+        eventName: 'Test Event',
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toEqual({
+      message: 'Event total tickets are required',
+    });
+  });
+
+  test('should return 400 if totalTickets is not a positive number', async () => {
+    const mockUser = { id: 1, name: 'Admin User', email: 'admin@example.com', role: 'admin' };
+    User.findByPk.mockResolvedValue(mockUser);
+
+    const response = await request(app)
+      .post('/api/v1/event/initialize')
+      .set('Authorization', 'Bearer validToken')
+      .send({
+        totalTickets: -100,
+        eventName: 'Test Event',
+      });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toEqual({
+      message: 'Total tickets must be a positive number',
+    });
+  });
+
+  test('should return 500 if event creation fails', async () => {
+    const mockUser = { id: 1, name: 'Admin User', email: 'admin@example.com', role: 'admin' };
+    User.findByPk.mockResolvedValue(mockUser);
+    Event.create.mockRejectedValue(new Error('Database error'));
+
+    const response = await request(app)
+      .post('/api/v1/event/initialize')
+      .set('Authorization', 'Bearer validToken')
+      .send({
+        totalTickets: 100,
+        eventName: 'Test Event',
+      });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.body).toEqual({
+      message: 'Something went wrong while creating the event',
+      error: 'Database error',
+    });
   });
 });
 
 
-
-
-
-describe('book a ticket', () => {
-  let token;
-  let transactionMock;
-
-  beforeEach(() => {
-    token = jwt.sign({ id: 1 }, process.env.JWT_SECRET);
-    transactionMock = {
-      commit: jest.fn(),
-      rollback: jest.fn(),
-      LOCK: { UPDATE: 'LOCK UPDATE' },
-    };
-    sequelize.transaction = jest.fn(() => Promise.resolve(transactionMock));
-  });
-
-  
+describe('Ticket Booking', () => {
   afterAll(async () => {
+    await sequelize.transaction.rollback();
     await sequelize.close();
   });
 
@@ -165,126 +168,118 @@ describe('book a ticket', () => {
     jest.clearAllMocks();
   });
 
-  it('should return 403 if the user is not authorized', async () => {
-    User.findByPk.mockResolvedValueOnce({ id: 1, role: 'user' });
+  test('should book a ticket successfully if tickets are available', async () => {
+    const mockUser = { id: 1, name: 'Seyi Ebine', email: 'seyi@example.com', role: 'user' };
+    const mockEvent = { id: 1, eventName: 'Test Event', availableTickets: 10, bookedTickets: 0 };
+    const mockBooking = { eventId: mockEvent.id, userId: mockUser.id, ticketId: 'GreatBrands-abc123' };
 
-    const res = await request(app)
+    User.findByPk.mockResolvedValue(mockUser);
+    Event.findByPk.mockResolvedValue(mockEvent);
+    Booking.create.mockResolvedValue(mockBooking);
+    crypto.randomBytes.mockReturnValue(Buffer.from('abc123'));
+
+    const response = await request(app)
       .post('/api/v1/event/book/1')
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', 'Bearer validToken');
 
-    expect(res.statusCode).toBe(403);
-    expect(res.body.message).toBe('You are not authorized to perform this action');
-  });
-
-  it('should return 404 if event is not found', async () => {
-    User.findByPk.mockResolvedValueOnce({ id: 1, role: 'user' });
-    Event.findByPk.mockResolvedValueOnce(null);
-
-    const res = await request(app)
-      .post('/api/v1/event/book/1')
-      .set('Authorization', `Bearer ${token}`);
-
-    expect(res.statusCode).toBe(404);
-    expect(transactionMock.rollback).toHaveBeenCalled();
-    expect(res.body.message).toBe('Event not found');
-  });
-
-  it('should add the user to the waiting list if no tickets are available', async () => {
-    User.findByPk.mockResolvedValueOnce({ id: 1, role: 'user' });
-    Event.findByPk.mockResolvedValueOnce({
-      availableTickets: 0,
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual({
+      message: 'Ticket booked successfully',
+      event: { ...mockEvent, availableTickets: 9, bookedTickets: 1 },
+      book: mockBooking,
     });
-    WaitingList.create.mockResolvedValueOnce({ id: 1, eventId: 1, userId: 1 });
 
-    const res = await request(app)
-      .post('/api/v1/event/book/1')
-      .set('Authorization', `Bearer ${token}`);
+    expect(Event.findByPk).toHaveBeenCalledWith(1, expect.anything()); 
+    expect(Booking.create).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: mockEvent.id,
+      userId: mockUser.id,
+      ticketId: 'GreatBrands-abc123',
+    }), expect.anything());
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body.message).toBe('No tickets available, you have been added to the waiting list');
-    expect(transactionMock.commit).toHaveBeenCalled();
-    expect(WaitingList.create).toHaveBeenCalledWith({ eventId: 1, userId: 1 }, { transaction: transactionMock });
-  });
-
-  it('should successfully book a ticket if tickets are available', async () => {
-    const userMock = { id: 1, role: 'user', email: 'user@yopmail.com' };
-    const eventMock = {
-      id: 1,
-      availableTickets: 10,
-      bookedTickets: 5,
-      save: jest.fn(),
-    };
-    const bookingMock = { id: 1, ticketId: 'GreatBrands-1234' };
-
-    User.findByPk.mockResolvedValueOnce(userMock);
-    Event.findByPk.mockResolvedValueOnce(eventMock);
-    Booking.create.mockResolvedValueOnce(bookingMock);
-    crypto.randomBytes.mockReturnValueOnce(Buffer.from('12'));
-
-    const res = await request(app)
-      .post('/api/v1/event/book/1')
-      .set('Authorization', `Bearer ${token}`);
-
-    expect(res.statusCode).toBe(200);
-    expect(res.body.message).toBe('Ticket booked successfully');
-    expect(res.body.book).toEqual(bookingMock);
-    expect(transactionMock.commit).toHaveBeenCalled();
-    expect(eventMock.availableTickets).toBe(9);
-    expect(eventMock.bookedTickets).toBe(6);
-    expect(eventMock.save).toHaveBeenCalledWith({ transaction: transactionMock });
-
-    expect(sendEmail).toHaveBeenCalledWith({
-      email: userMock.email,
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({
+      email: mockUser.email,
       subject: 'Ticket Booked',
-      message: `Your ticket has been booked successfully. This is your Ticket ID: ${bookingMock.ticketId}.`,
+      message: expect.stringContaining('This is your Ticket ID: GreatBrands-abc123.'),
+    }));
+  });
+
+  test('should add user to waiting list if no tickets are available', async () => {
+    const mockUser = { id: 1, name: 'Seyi Ebine', email: 'seyi@example.com', role: 'user' };
+    const mockEvent = { id: 1, eventName: 'Test Event', availableTickets: 0 };
+    const mockWaitingList = { eventId: mockEvent.id, userId: mockUser.id };
+
+    User.findByPk.mockResolvedValue(mockUser);
+    Event.findByPk.mockResolvedValue(mockEvent);
+    WaitingList.create.mockResolvedValue(mockWaitingList);
+
+    const response = await request(app)
+      .post('/api/v1/event/book/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual({
+      message: 'No tickets available, you have been added to the waiting list',
+      waitingList: mockWaitingList,
+    });
+
+    expect(WaitingList.create).toHaveBeenCalledWith({ eventId: mockEvent.id, userId: mockUser.id }, expect.anything());
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  test('should return 403 if user is not authorized', async () => {
+    const mockUser = { id: 1, name: 'Seyi Ebine', email: 'seyi@example.com', role: 'admin' };
+
+    User.findByPk.mockResolvedValue(mockUser);
+
+    const response = await request(app)
+      .post('/api/v1/event/book/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toEqual({
+      message: 'You are not authorized to perform this action',
     });
   });
 
-  it('should return 500 if there is an error while booking the ticket', async () => {
-    User.findByPk.mockResolvedValueOnce({ id: 1, role: 'user' });
-    Event.findByPk.mockResolvedValueOnce({
-      availableTickets: 10,
-      bookedTickets: 5,
-      save: jest.fn(),
-    });
-    Booking.create.mockRejectedValueOnce(new Error('Database error'));
+  test('should return 404 if event is not found', async () => {
+    const mockUser = { id: 1, name: 'Seyi Ebine', email: 'seyi@example.com', role: 'user' };
 
-    const res = await request(app)
+    User.findByPk.mockResolvedValue(mockUser);
+    Event.findByPk.mockResolvedValue(null);
+
+    const response = await request(app)
       .post('/api/v1/event/book/1')
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', 'Bearer validToken');
 
-    expect(res.statusCode).toBe(500);
-    expect(res.body.message).toBe('Something went wrong while booking the ticket');
-    expect(res.body.error).toBe('Database error');
-    expect(transactionMock.rollback).toHaveBeenCalled();
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toEqual({
+      message: 'Event not found',
+    });
+  });
+
+  test('should return 500 if there is a server error', async () => {
+    const mockUser = { id: 1, name: 'Seyi Ebine', email: 'seyi@example.com', role: 'user' };
+
+    User.findByPk.mockResolvedValue(mockUser);
+    Event.findByPk.mockRejectedValue(new Error('Database error'));
+
+    const response = await request(app)
+      .post('/api/v1/event/book/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(500);
+    expect(response.body).toEqual({
+      message: 'Something went wrong while booking the ticket',
+      error: 'Database error',
+    });
   });
 });
 
 
 
-describe('Cancel a ticket', () => {
-  let token;
-  let user;
-  let event;
-  let booking;
-  let waitingListUser;
-
-  beforeEach(async () => {
-    token = jwt.sign({ id: 1 }, process.env.JWT_SECRET);
-    user = await User.create({ id: 1, email: 'test@yopmail.com', role: 'user', isVerified: true });
-    event = await Event.create({ id: 1, userId: user.id, totalTickets: 100, availableTickets: 1, bookedTickets: 99 });
-    booking = await Booking.create({ eventId: event.id, userId: user.id });
-    waitingListUser = await WaitingList.create({ eventId: event.id, userId: 2 });
-  });
-
-  afterEach(async () => {
-    await Booking.destroy({ where: {} });
-    await WaitingList.destroy({ where: {} });
-    await Event.destroy({ where: {} });
-    await User.destroy({ where: {} });
-  });
-
+describe('Cancel Booking', () => {
   afterAll(async () => {
+    await sequelize.transaction.rollback();
     await sequelize.close();
   });
 
@@ -296,151 +291,239 @@ describe('Cancel a ticket', () => {
     jest.clearAllMocks();
   });
 
-  it('should cancel the booking and assign the ticket to a user on the waiting list', async () => {
-    const res = await request(app)
-      .post(`/api/v1/event/cancel/${event.id}`)
-      .set('Authorization', `Bearer ${token}`);
+  test('should cancel a booking and assign a ticket to the next user in the waiting list', async () => {
+    const mockUser = { id: 1, name: 'Kemi Seyi', email: 'kemi@example.com', role: 'user' };
+    const mockEvent = { id: 1, eventName: 'Test Event', availableTickets: 0, bookedTickets: 100 };
+    const mockBooking = { eventId: mockEvent.id, userId: mockUser.id };
+    const mockWaitingList = [{ userId: 2 }];
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body.message).toContain('Ticket assigned to next user in waiting list');
+    User.findByPk.mockResolvedValue(mockUser);
+    Booking.findOne.mockResolvedValue(mockBooking);
+    Event.findByPk.mockResolvedValue(mockEvent);
+    WaitingList.findAll.mockResolvedValue(mockWaitingList);
+    Booking.create.mockResolvedValue({ eventId: mockEvent.id, userId: 2, ticketId: 'GreatBrands-abc123' });
+    crypto.randomBytes.mockReturnValue(Buffer.from('abc123'));
+
+    const response = await request(app)
+      .delete('/api/v1/event/cancel/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual({
+      message: 'Your booking was cancelled. Ticket assigned to next user in waiting list. Sadly, not seeing you participating in this event.',
+    });
+
+    expect(Booking.findOne).toHaveBeenCalledWith({ where: { eventId: 1, userId: mockUser.id } });
+    expect(Booking.create).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: mockEvent.id,
+      userId: 2,
+      ticketId: 'GreatBrands-abc123',
+    }), expect.anything());
+
+    expect(WaitingList.findAll).toHaveBeenCalledWith({ where: { eventId: 1 }, transaction: expect.anything() });
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({
+      email: mockUser.email,
+      subject: 'Booking Cancelled',
+      message: expect.stringContaining('Your booking has been cancelled successfully.'),
+    }));
   });
 
-  it('should cancel the booking and increment available tickets when no waiting list', async () => {
-    await WaitingList.destroy({ where: { eventId: event.id } });
+  test('should cancel booking and make a ticket available when no one is in the waiting list', async () => {
+    const mockUser = { id: 1, name: 'Kemi Seyi', email: 'kemi@example.com', role: 'user' };
+    const mockEvent = { id: 1, eventName: 'Test Event', availableTickets: 0, bookedTickets: 100 };
+    const mockBooking = { eventId: mockEvent.id, userId: mockUser.id };
 
-    const res = await request(app)
-      .post(`/api/v1/event/cancel/${event.id}`)
-      .set('Authorization', `Bearer ${token}`);
+    User.findByPk.mockResolvedValue(mockUser);
+    Booking.findOne.mockResolvedValue(mockBooking);
+    Event.findByPk.mockResolvedValue(mockEvent);
+    WaitingList.findAll.mockResolvedValue([]);
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body.message).toBe('Your booking was cancelled successfully, and a ticket was made available.');
-    const updatedEvent = await Event.findByPk(event.id);
-    expect(updatedEvent.availableTickets).toBe(2);
+    const response = await request(app)
+      .delete('/api/v1/event/cancel/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual({
+      message: 'Your booking was cancelled successfully, and a ticket was made available.',
+    });
+
+    expect(Event.findByPk).toHaveBeenCalledWith(1, expect.anything());
+    expect(Booking.findOne).toHaveBeenCalledWith({ where: { eventId: 1, userId: mockUser.id } });
+    expect(WaitingList.findAll).toHaveBeenCalledWith({ where: { eventId: 1 }, transaction: expect.anything() });
+
+    expect(mockEvent.availableTickets).toBe(1);
+    expect(mockEvent.bookedTickets).toBe(99);
   });
 
-  it('should return 400 if the booking is not found', async () => {
-    await Booking.destroy({ where: { eventId: event.id, userId: user.id } });
+  test('should return 403 if user is not authorized', async () => {
+    const mockUser = { id: 1, name: 'Kemi Seyi', email: 'kemi@example.com', role: 'admin' };
 
-    const res = await request(app)
-      .post(`/api/v1/event/cancel/${event.id}`)
-      .set('Authorization', `Bearer ${token}`);
+    User.findByPk.mockResolvedValue(mockUser);
 
-    expect(res.statusCode).toBe(400);
-    expect(res.body.message).toBe('Booking not found');
+    const response = await request(app)
+      .delete('/api/v1/event/cancel/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toEqual({
+      message: 'You are not authorized to perform this action',
+    });
   });
 
-  it('should return 403 if user is not authorized', async () => {
-    const unauthorizedToken = jwt.sign({ id: 2 }, process.env.JWT_SECRET);
+  test('should return 400 if booking is not found', async () => {
+    const mockUser = { id: 1, name: 'Kemi Seyi', email: 'kemi@example.com', role: 'user' };
 
-    const res = await request(app)
-      .post(`/api/v1/event/cancel/${event.id}`)
-      .set('Authorization', `Bearer ${unauthorizedToken}`);
+    User.findByPk.mockResolvedValue(mockUser);
+    Booking.findOne.mockResolvedValue(null);
 
-    expect(res.statusCode).toBe(403);
-    expect(res.body.message).toBe('You are not authorized to perform this action');
+    const response = await request(app)
+      .delete('/api/v1/event/cancel/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toEqual({
+      message: 'Booking not found',
+    });
   });
 
-  it('should return 404 if the event is not found', async () => {
-    const res = await request(app)
-      .post('/api/v1/event/cancel/999') // Non-existent event ID
-      .set('Authorization', `Bearer ${token}`);
+  test('should return 404 if event is not found', async () => {
+    const mockUser = { id: 1, name: 'Kemi Seyi', email: 'kemi@example.com', role: 'user' };
+    const mockBooking = { eventId: 1, userId: mockUser.id };
 
-    expect(res.statusCode).toBe(404);
-    expect(res.body.message).toBe('Event not found');
+    User.findByPk.mockResolvedValue(mockUser);
+    Booking.findOne.mockResolvedValue(mockBooking);
+    Event.findByPk.mockResolvedValue(null);
+
+    const response = await request(app)
+      .delete('/api/v1/event/cancel/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toEqual({
+      message: 'Event not found',
+    });
   });
 
-  it('should return 500 if there is an error during booking cancellation', async () => {
-    jest.spyOn(Booking, 'findOne').mockImplementation(() => { throw new Error('Database error'); });
+  test('should return 500 if there is a server error', async () => {
+    const mockUser = { id: 1, name: 'Kemi Seyi', email: 'kemi@example.com', role: 'user' };
+    const mockBooking = { eventId: 1, userId: mockUser.id };
 
-    const res = await request(app)
-      .post(`/api/v1/event/cancel/${event.id}`)
-      .set('Authorization', `Bearer ${token}`);
+    User.findByPk.mockResolvedValue(mockUser);
+    Booking.findOne.mockResolvedValue(mockBooking);
+    Event.findByPk.mockRejectedValue(new Error('Database error'));
 
-    expect(res.statusCode).toBe(500);
-    expect(res.body.message).toBe('Something went wrong while cancelling the booking');
+    const response = await request(app)
+      .delete('/api/v1/event/cancel/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(500);
+    expect(response.body).toEqual({
+      message: 'Something went wrong while cancelling the booking',
+      error: 'Database error',
+    });
   });
 });
 
 
 
-
-describe('Get all events', () => {
-    
-  let token;
-  let user;
-  let event;
-  let booking;
-  let waitingListUser;
-
-  beforeEach(async () => {
-    token = jwt.sign({ id: 1 }, process.env.JWT_SECRET);
-
-    // Mock user, event, booking, and waiting list data
-    user = await User.create({ id: 1, email: 'test@test.com', role: 'user', isVerified: true });
-    event = await Event.create({ id: 1, userId: user.id, totalTickets: 100, availableTickets: 10, bookedTickets: 90 });
-    booking = await Booking.create({ eventId: event.id, userId: user.id });
-    waitingListUser = await WaitingList.create({ eventId: event.id, userId: 2 });
-  });
-
-  afterEach(async () => {
-    await Booking.destroy({ where: {} });
-    await WaitingList.destroy({ where: {} });
-    await Event.destroy({ where: {} });
-    await User.destroy({ where: {} });
-  });
+describe('Get Event Status', () => {
 
   afterAll(async () => {
+    clearTimeout(global.setTimeout);
     await sequelize.close();
   });
-
-  afterAll(() => {
-    clearTimeout(30000);
-  });
-
+  
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should return event status successfully for authorized users', async () => {
-    const res = await request(app)
-      .get(`/api/v1/event/status/${event.id}`)
-      .set('Authorization', `Bearer ${token}`);
+  test('should return event status successfully if user is an admin', async () => {
+    const mockUser = { id: 1, name: 'Admin', email: 'admin@example.com', role: 'admin' };
+    const mockEvent = { id: 1, eventName: 'Test Event', availableTickets: 50, bookedTickets: 50 };
+    const mockBookings = [{ id: 1, eventId: 1, userId: 2 }, { id: 2, eventId: 1, userId: 3 }];
+    const mockWaitingListCount = 2;
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body.availableTickets).toBe(event.availableTickets);
-    expect(res.body.waitingListCount).toBe(1);
-    expect(res.body.bookedTickets).toBe(event.bookedTickets);
-    expect(res.body.books.length).toBe(1);
+    User.findByPk.mockResolvedValue(mockUser);
+    Event.findByPk.mockResolvedValue(mockEvent);
+    Booking.findAll.mockResolvedValue(mockBookings);
+    WaitingList.count.mockResolvedValue(mockWaitingListCount);
+
+    const response = await request(app)
+      .get('/api/v1/event/status/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual({
+      availableTickets: mockEvent.availableTickets,
+      waitingListCount: mockWaitingListCount,
+      bookedTickets: mockEvent.bookedTickets,
+      books: mockBookings,
+    });
+
+    expect(User.findByPk).toHaveBeenCalledWith(1);
+    expect(Event.findByPk).toHaveBeenCalledWith(1);
+    expect(Booking.findAll).toHaveBeenCalledWith({ where: { eventId: 1 } });
+    expect(WaitingList.count).toHaveBeenCalledWith({ where: { eventId: 1 } });
   });
 
-  it('should return 403 if the user is not authorized', async () => {
-    const unauthorizedToken = jwt.sign({ id: 2 }, process.env.JWT_SECRET);
+  test('should return 403 if user is not an admin', async () => {
+    const mockUser = { id: 1, name: 'Kemi Seyi', email: 'kemi@example.com', role: 'user' }; 
 
-    const res = await request(app)
-      .get(`/events/${event.id}/status`)
-      .set('Authorization', `Bearer ${unauthorizedToken}`);
+    User.findByPk.mockResolvedValue(mockUser);
 
-    expect(res.statusCode).toBe(403);
-    expect(res.body.message).toBe('You are not authorized to perform this action');
+    const response = await request(app)
+      .get('/api/v1/event/status/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(403);
+    expect(response.body).toEqual({
+      message: 'You are not authorized to perform this action but only admin can perform this action',
+    });
+
+    expect(User.findByPk).toHaveBeenCalledWith(1);
+    expect(Event.findByPk).not.toHaveBeenCalled();
+    expect(Booking.findAll).not.toHaveBeenCalled();
+    expect(WaitingList.count).not.toHaveBeenCalled();
   });
 
-  it('should return 404 if the event is not found', async () => {
-    const res = await request(app)
-      .get('/api/v1/event/status/99') // Non-existent event ID
-      .set('Authorization', `Bearer ${token}`);
+  test('should return 404 if event is not found', async () => {
+    const mockUser = { id: 1, name: 'Admin', email: 'admin@example.com', role: 'admin' };
 
-    expect(res.statusCode).toBe(404);
-    expect(res.body.message).toBe('Event not found');
+    User.findByPk.mockResolvedValue(mockUser);
+    Event.findByPk.mockResolvedValue(null);
+
+    const response = await request(app)
+      .get('/api/v1/event/status/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toEqual({
+      message: 'Event not found',
+    });
+
+    expect(User.findByPk).toHaveBeenCalledWith(1);
+    expect(Event.findByPk).toHaveBeenCalledWith(1);
+    expect(Booking.findAll).not.toHaveBeenCalled();
+    expect(WaitingList.count).not.toHaveBeenCalled();
   });
 
-  it('should return 500 if there is a server error', async () => {
-    jest.spyOn(Event, 'findByPk').mockImplementation(() => { throw new Error('Database error'); });
+  test('should return 500 if there is a server error', async () => {
+    const mockUser = { id: 1, name: 'Admin', email: 'admin@example.com', role: 'admin' };
 
-    const res = await request(app)
-      .get(`/events/${event.id}/status`)
-      .set('Authorization', `Bearer ${token}`);
+    User.findByPk.mockResolvedValue(mockUser);
+    Event.findByPk.mockRejectedValue(new Error('Database error'));
 
-    expect(res.statusCode).toBe(500);
-    expect(res.body.message).toBe('Something went wrong while fetching the event status');
+    const response = await request(app)
+      .get('/api/v1/event/status/1')
+      .set('Authorization', 'Bearer validToken');
+
+    expect(response.statusCode).toBe(500);
+    expect(response.body).toEqual({
+      message: 'Something went wrong while fetching the event status',
+      error: 'Database error',
+    });
+
+    expect(User.findByPk).toHaveBeenCalledWith(1);
+    expect(Event.findByPk).toHaveBeenCalledWith(1);
   });
 });

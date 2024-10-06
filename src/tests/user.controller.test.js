@@ -152,11 +152,6 @@ describe('User Sign Up', () => {
 
 
 
-
-
-
-
-
 describe('User Login', () => {
   afterAll(async () => {
     await sequelize.close();
