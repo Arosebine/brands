@@ -66,8 +66,8 @@ const User = sequelize.define('User', {
 });
 
 // Define associations
-// User.hasMany(Booking, { foreignKey: 'userId', as: 'bookings' });
-// Booking.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(Booking, { foreignKey: 'userId', as: 'bookings' });
+Booking.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.sync({}).then(() => {
   console.log('User table synced');
