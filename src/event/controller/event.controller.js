@@ -150,6 +150,12 @@ exports.cancelBooking = async (req, res) => {
         userId: nextUser.userId,
         ticketId: ticketId,
       }, { transaction });
+      const u = await User.findByPk(nextUser.userId);
+      await sendEmail({
+        email: u.email,
+        subject: 'Booking successful',
+        message: `Your booking has been successful. Ticket ID: ${ticketId}.`,
+      })
     } else {
       event.availableTickets += 1;
       event.bookedTickets -= 1;
@@ -163,7 +169,7 @@ exports.cancelBooking = async (req, res) => {
     await sendEmail({
       email: user.email,
       subject: 'Booking Cancelled',
-      message: `Your booking has been cancelled successfully.`,
+      message: `Your booking has been cancelled successfully. Sadly, not seeing you participating in this event`,
     })
 
     return res.status(200).json({
