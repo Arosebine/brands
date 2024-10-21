@@ -94,7 +94,7 @@ exports.bookTicket = async (req, res) => {
       subject: 'Ticket Booked',
       message: `Your ticket has been booked successfully. This is your Ticket ID: ${book.ticketId}.`,
     })
-    return res.status(200).json({ message: 'Ticket booked successfully', event, book });
+    return res.status(200).json({ message: 'Ticket booked successfully', book });
   } catch (error) {
     if (transaction) await transaction.rollback();
     return res.status(500).json({

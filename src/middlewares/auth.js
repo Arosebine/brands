@@ -10,7 +10,7 @@ exports.isAuth = async (req, res, next) => {
 
     const decoded = verifyToken(token, process.env.JWT_SECRET);
     if (!decoded) {
-      return res.status(401).json({ message: 'Invalid token' });
+      return res.status(401).json({ message: 'Invalid token or expired' });
     }
 
     const user = await User.findByPk(decoded.id);
@@ -32,7 +32,7 @@ const extractToken = (authHeader) => {
   return authHeader.split(' ')[1];
 };
 
-
+const secret = process.env.JWT_SECRET;
 const verifyToken = (token, secret) => {
   try {
     return jwt.verify(token, secret);
